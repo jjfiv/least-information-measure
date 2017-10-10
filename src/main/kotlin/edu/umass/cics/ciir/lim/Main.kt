@@ -1,21 +1,13 @@
 package edu.umass.cics.ciir.lim
 
-import com.github.benmanes.caffeine.cache.Caffeine
 import gnu.trove.list.array.TDoubleArrayList
-import gnu.trove.map.hash.TObjectIntHashMap
 import org.lemurproject.galago.core.eval.QueryResults
 import org.lemurproject.galago.core.eval.QuerySetJudgments
 import org.lemurproject.galago.core.eval.metric.QueryEvaluatorFactory
-import org.lemurproject.galago.core.index.corpus.CorpusReader
-import org.lemurproject.galago.core.index.stats.NodeStatistics
-import org.lemurproject.galago.core.parse.Document
 import org.lemurproject.galago.core.retrieval.LocalRetrieval
 import org.lemurproject.galago.utility.Parameters
-import org.lemurproject.galago.utility.StreamCreator
 import java.io.File
-import java.io.PrintWriter
 import java.net.InetAddress
-import java.time.Duration
 import java.util.*
 
 
@@ -66,11 +58,15 @@ class NamedMeasures {
 }
 
 
-// Results:
+// Results: (with #wsum, bug)
 //  hasMatch wired to true:
 // { "lib-ap" : 0.13812366209817234 , "lif+lib-ap" : 0.2123746827490559 , "lif-ap" : 0.05467584931916471 , "ql-ap" : 0.251723934368579 }
 // hasMatch smarter:
 // { "lib-ap" : 0.13812366209817234 , "lif+lib-ap" : 0.2123746827490559 , "lif-ap" : 0.05467584931916471 , "ql-ap" : 0.251723934368579 }
+// With #sum:
+// { "lib.ap" : 0.11335353177014072 , "libf.ap" : 0.1981679216135092 , "libpf.ap" : 0.19711391835731504 , "lif+lib.ap" : 0.19711063576866897 , "lif.ap" : 0.058620997929629576 , "ql.ap" : 0.251723934368579 }
+// With #combine:
+// { "lib.ap" : 0.11409638336663054 , "libf.ap" : 0.1981679216135092 , "libpf.ap" : 0.19711201014165164 , "lif+lib.ap" : 0.197112448887899 , "lif.ap" : 0.05862047822167118 , "ql.ap" : 0.251723934368579 }
 
 fun LocalRetrieval.exec(expr: GExpr): QueryResults = QueryResults(this.transformAndExecuteQuery(expr).scoredDocuments)
 
@@ -79,9 +75,11 @@ fun main(args: Array<String>) {
     val rerankExperiment = argp.get("rerankExperiment", false)
 
     val operators = Parameters.create()
+    operators.set("sum", PlainSumIterator::class.java.canonicalName)
     operators.set("lib", LeastInformationBinary::class.java.canonicalName)
     operators.set("lif", LeastInformationFrequency::class.java.canonicalName)
     operators.set("libf", LIBtimesLIF::class.java.canonicalName)
+    operators.set("libpf", LIBplusLIF::class.java.canonicalName)
 
     val indexP = Parameters.create()
     indexP.put("operators", operators)
@@ -103,16 +101,18 @@ fun main(args: Array<String>) {
             val qterms = tokenizer.tokenize(qtext).terms.filterNotNull()
             val truth = qrels.get(qid)!!
 
-            val libExpr = GExpr("wsum")
-            val lifExpr = GExpr("wsum")
-            val libfExpr = GExpr("wsum")
-            val liflibSumExpr = GExpr("wsum")
+            val libExpr = GExpr("sum")
+            val lifExpr = GExpr("sum")
+            val libfExpr = GExpr("sum")
+            val libpfExpr = GExpr("sum")
+            val liflibSumExpr = GExpr("sum")
             val qlExpr = GExpr("combine")
             qterms.forEach {
                 qlExpr.push(GExpr.Text(it))
                 libExpr.push(GExpr("lib").push(GExpr.Text(it)))
                 lifExpr.push(GExpr("lif").push(GExpr.Text(it)))
                 libfExpr.push(GExpr("libf").push(GExpr.Text(it)))
+                libpfExpr.push(GExpr("libpf").push(GExpr.Text(it)))
 
                 // LIF+LIB
                 liflibSumExpr.push(GExpr("lib").push(GExpr.Text(it)))
@@ -124,6 +124,7 @@ fun main(args: Array<String>) {
                     Pair("lib", libExpr),
                     Pair("lif", lifExpr), // this one's crap.
                     Pair("libf", libfExpr),
+                    Pair("libpf", libpfExpr),
                     Pair("lif+lib", liflibSumExpr))
 
             tasks.forEach { (mName, expr) ->

@@ -55,12 +55,20 @@ class NamedMeasures {
     fun means(): TreeMap<String, Double> = measures.mapValuesTo(TreeMap()) { (_,arr) -> arr.sum() / arr.size() }
 }
 
+
+// Results:
+//  hasMatch wired to true:
+// { "lib-ap" : 0.13812366209817234 , "lif+lib-ap" : 0.2123746827490559 , "lif-ap" : 0.05467584931916471 , "ql-ap" : 0.251723934368579 }
+// hasMatch smarter:
+// { "lib-ap" : 0.13812366209817234 , "lif+lib-ap" : 0.2123746827490559 , "lif-ap" : 0.05467584931916471 , "ql-ap" : 0.251723934368579 }
+
 fun LocalRetrieval.exec(expr: GExpr): QueryResults = QueryResults(this.transformAndExecuteQuery(expr).scoredDocuments)
 
 fun main(args: Array<String>) {
 
     val operators = Parameters.create()
     operators.set("lib", LeastInformationBinary::class.java.canonicalName)
+    operators.set("lif", LeastInformationFrequency::class.java.canonicalName)
 
     val indexP = Parameters.create()
     indexP.put("operators", operators)
@@ -79,14 +87,23 @@ fun main(args: Array<String>) {
             val truth = qrels.get(qid)!!
 
             val libExpr = GExpr("wsum")
+            val lifExpr = GExpr("wsum")
+            val liflibSumExpr = GExpr("wsum")
             val qlExpr = GExpr("combine")
             qterms.forEach {
                 qlExpr.push(GExpr.Text(it))
                 libExpr.push(GExpr("lib").push(GExpr.Text(it)))
+                lifExpr.push(GExpr("lif").push(GExpr.Text(it)))
+
+                // LIF+LIB
+                liflibSumExpr.push(GExpr("lib").push(GExpr.Text(it)))
+                liflibSumExpr.push(GExpr("lif").push(GExpr.Text(it)))
             }
 
             measures.push("ql-ap", AP.evaluate(ret.exec(qlExpr), truth))
             measures.push("lib-ap", AP.evaluate(ret.exec(libExpr), truth))
+            measures.push("lif-ap", AP.evaluate(ret.exec(lifExpr), truth))
+            measures.push("lif+lib-ap", AP.evaluate(ret.exec(liflibSumExpr), truth))
             println(measures.means())
         }
         println(Parameters.wrap(measures.means()))

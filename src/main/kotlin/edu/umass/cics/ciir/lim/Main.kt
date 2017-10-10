@@ -27,7 +27,7 @@ object DataPaths {
         else -> notImpl()
     })
     fun getTitleQueryFile(): File = File(getQueryDir(), "rob04.titles.tsv")
-    fun getDescQueryFile(): File = File(getQueryDir(), "rob04.desc.tsv")
+    fun getDescQueryFile(): File = File(getQueryDir(), "rob04.descs.tsv")
     fun getQueryJudgmentsFile(): File = File(getQueryDir(), "robust04.qrels")
 
     fun parseTSV(fp: File): Map<String, String> = fp.useLines { lines ->
@@ -76,6 +76,7 @@ fun main(args: Array<String>) {
 
     val operators = Parameters.create()
     operators.set("sum", PlainSumIterator::class.java.canonicalName)
+    operators.set("normsum", NormSumIterator::class.java.canonicalName)
     operators.set("lib", LeastInformationBinary::class.java.canonicalName)
     operators.set("lif", LeastInformationFrequency::class.java.canonicalName)
     operators.set("libf", LIBtimesLIF::class.java.canonicalName)
@@ -106,6 +107,7 @@ fun main(args: Array<String>) {
             val libfExpr = GExpr("sum")
             val libpfExpr = GExpr("sum")
             val liflibSumExpr = GExpr("sum")
+            val licosExpr = GExpr("normsum")
             val qlExpr = GExpr("combine")
             qterms.forEach {
                 qlExpr.push(GExpr.Text(it))
@@ -113,6 +115,7 @@ fun main(args: Array<String>) {
                 lifExpr.push(GExpr("lif").push(GExpr.Text(it)))
                 libfExpr.push(GExpr("libf").push(GExpr.Text(it)))
                 libpfExpr.push(GExpr("libpf").push(GExpr.Text(it)))
+                licosExpr.push(GExpr("libpf").push(GExpr.Text(it)))
 
                 // LIF+LIB
                 liflibSumExpr.push(GExpr("lib").push(GExpr.Text(it)))
@@ -125,14 +128,13 @@ fun main(args: Array<String>) {
                     Pair("lif", lifExpr), // this one's crap.
                     Pair("libf", libfExpr),
                     Pair("libpf", libpfExpr),
+                    Pair("licos", licosExpr),
                     Pair("lif+lib", liflibSumExpr))
 
             tasks.forEach { (mName, expr) ->
                 val gres = ret.transformAndExecuteQuery(expr)
                 val qres = QueryResults(gres.scoredDocuments)
-                if (mName == "libf") {
-                    println(qres.take(10).joinToString { String.format("%1.3f", it.score) })
-                } else if (rerankExperiment && mName == "lib") {
+                if (rerankExperiment && mName == "lib") {
                     val qp = Parameters.create()
                     qp.set("working", ArrayList(gres.resultSet()))
                     val ql_lib_res = QueryResults(ret.transformAndExecuteQuery(qlExpr.clone(), qp).scoredDocuments)

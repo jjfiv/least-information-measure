@@ -1,6 +1,7 @@
 package edu.umass.cics.ciir.lim
 
 import gnu.trove.map.hash.TLongDoubleHashMap
+import org.lemurproject.galago.core.retrieval.RequiredParameters
 import org.lemurproject.galago.core.retrieval.RequiredStatistics
 import org.lemurproject.galago.core.retrieval.iterator.*
 import org.lemurproject.galago.core.retrieval.processing.ScoringContext
@@ -219,6 +220,39 @@ class LIBtimesLIF(np: NodeParameters, lengths: LengthsIterator, counts: CountIte
         val lib = 2.0 - lib_gtC
 
         return lif * lib;
+    }
+
+    override fun hasMatch(context: ScoringContext?): Boolean {
+        // hack to verify that negative scores are not useful.
+        //return true
+        return super.hasMatch(context)
+    }
+}
+
+@RequiredStatistics(statistics = arrayOf("collectionLength", "nodeFrequency", "documentCount", "nodeDocumentCount"))
+@RequiredParameters(parameters=arrayOf("mu"))
+class DirichletLeastInformationFrequency(np: NodeParameters, lengths: LengthsIterator, counts: CountIterator) : ScoringFunctionIterator(np, lengths, counts) {
+    val mu = np.get("mu", 1500.0);
+    // Total term occurrences in collection...
+    val collectionLength = np.getLong("collectionLength")
+    // Total term occurrences.
+    val collectionFrequency = np.getLong("nodeFrequency")
+    val background = Math.max(collectionFrequency.toDouble(), 0.5) / collectionLength.toDouble()
+
+    val gtC = g(collectionFrequency.toDouble() / collectionLength.toDouble())
+
+    // This is the core function of LIB: http://www.wolframalpha.com/input/?i=x*(1+-+ln(x))+from+x+%3D+0+to+x+%3D+1
+    fun g(p: Double): Double = p * (1 - Math.log(p))
+
+    override fun score(c: ScoringContext?): Double {
+        val count = this.countIterator.count(c)
+        if (count == 0) {
+            return -gtC;
+        }
+        val length = this.lengthsIterator.length(c)
+        val tfd = (count.toDouble() + mu*background) / (length.toDouble() + mu)
+        val gtd = g(tfd);
+        return gtd - gtC;
     }
 
     override fun hasMatch(context: ScoringContext?): Boolean {

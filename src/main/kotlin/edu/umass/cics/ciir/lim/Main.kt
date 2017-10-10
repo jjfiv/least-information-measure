@@ -79,6 +79,7 @@ fun main(args: Array<String>) {
     operators.set("normsum", NormSumIterator::class.java.canonicalName)
     operators.set("lib", LeastInformationBinary::class.java.canonicalName)
     operators.set("lif", LeastInformationFrequency::class.java.canonicalName)
+    operators.set("dlif", DirichletLeastInformationFrequency::class.java.canonicalName)
     operators.set("libf", LIBtimesLIF::class.java.canonicalName)
     operators.set("libpf", LIBplusLIF::class.java.canonicalName)
 
@@ -104,6 +105,7 @@ fun main(args: Array<String>) {
 
             val libExpr = GExpr("sum")
             val lifExpr = GExpr("sum")
+            val dlifExpr = GExpr("sum")
             val libfExpr = GExpr("sum")
             val libpfExpr = GExpr("sum")
             val liflibSumExpr = GExpr("sum")
@@ -113,6 +115,7 @@ fun main(args: Array<String>) {
                 qlExpr.push(GExpr.Text(it))
                 libExpr.push(GExpr("lib").push(GExpr.Text(it)))
                 lifExpr.push(GExpr("lif").push(GExpr.Text(it)))
+                dlifExpr.push(GExpr("dlif").push(GExpr.Text(it)))
                 libfExpr.push(GExpr("libf").push(GExpr.Text(it)))
                 libpfExpr.push(GExpr("libpf").push(GExpr.Text(it)))
                 licosExpr.push(GExpr("libpf").push(GExpr.Text(it)))
@@ -126,6 +129,7 @@ fun main(args: Array<String>) {
             val tasks = mapOf(Pair("ql", qlExpr.clone()),
                     Pair("lib", libExpr),
                     Pair("lif", lifExpr), // this one's crap.
+                    Pair("dlif", dlifExpr), // with smoothing?
                     Pair("libf", libfExpr),
                     Pair("libpf", libpfExpr),
                     Pair("licos", licosExpr),

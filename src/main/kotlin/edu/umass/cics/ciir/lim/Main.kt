@@ -69,6 +69,7 @@ fun main(args: Array<String>) {
     val operators = Parameters.create()
     operators.set("lib", LeastInformationBinary::class.java.canonicalName)
     operators.set("lif", LeastInformationFrequency::class.java.canonicalName)
+    operators.set("libf", LIBtimesLIF::class.java.canonicalName)
 
     val indexP = Parameters.create()
     indexP.put("operators", operators)
@@ -92,12 +93,14 @@ fun main(args: Array<String>) {
 
             val libExpr = GExpr("wsum")
             val lifExpr = GExpr("wsum")
+            val libfExpr = GExpr("wsum")
             val liflibSumExpr = GExpr("wsum")
             val qlExpr = GExpr("combine")
             qterms.forEach {
                 qlExpr.push(GExpr.Text(it))
                 libExpr.push(GExpr("lib").push(GExpr.Text(it)))
                 lifExpr.push(GExpr("lif").push(GExpr.Text(it)))
+                libfExpr.push(GExpr("libf").push(GExpr.Text(it)))
 
                 // LIF+LIB
                 liflibSumExpr.push(GExpr("lib").push(GExpr.Text(it)))
@@ -106,11 +109,16 @@ fun main(args: Array<String>) {
 
             val tasks = mapOf(Pair("ql", qlExpr),
                     Pair("lib", libExpr),
-                    Pair("lif", lifExpr),
+                    Pair("lif", lifExpr), // this one's crap.
+                    Pair("libf", libfExpr),
                     Pair("lif+lib", liflibSumExpr))
 
             tasks.forEach { (mName, expr) ->
                 val qres = ret.exec(expr)
+                if (mName == "libf") {
+                    println(qres.take(10).joinToString { String.format("%1.3f", it.score) })
+                }
+
                 evals.forEach { eName, eval ->
                     val score = eval.evaluate(qres, truth)
                     measures.push("$mName.$eName", score)

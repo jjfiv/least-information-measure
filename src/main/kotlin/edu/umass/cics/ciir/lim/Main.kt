@@ -86,6 +86,9 @@ fun main(args: Array<String>) {
     val indexP = Parameters.create()
     indexP.put("operators", operators)
 
+    // otherwise, sum
+    val style = argp.get("style", "wsum")
+
     DataPaths.getRobustIndex(indexP).use { ret ->
         val tokenizer = ret.tokenizer!!
 
@@ -103,14 +106,14 @@ fun main(args: Array<String>) {
             val qterms = tokenizer.tokenize(qtext).terms.filterNotNull()
             val truth = qrels.get(qid)!!
 
-            val libExpr = GExpr("sum")
-            val lifExpr = GExpr("sum")
-            val dlifExpr = GExpr("sum")
-            val libfExpr = GExpr("sum")
-            val libpfExpr = GExpr("sum")
-            val liflibSumExpr = GExpr("sum")
+            val libExpr = GExpr(style)
+            val lifExpr = GExpr(style)
+            val dlifExpr = GExpr(style)
+            val libfExpr = GExpr(style)
+            val libpfExpr = GExpr(style)
+            val liflibSumExpr = GExpr(style)
             val licosExpr = GExpr("normsum")
-            val qlExpr = GExpr("combine")
+            val qlExpr = GExpr(style)
             qterms.forEach {
                 qlExpr.push(GExpr.Text(it))
                 libExpr.push(GExpr("lib").push(GExpr.Text(it)))

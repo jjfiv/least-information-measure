@@ -65,6 +65,8 @@ class NamedMeasures {
 fun LocalRetrieval.exec(expr: GExpr): QueryResults = QueryResults(this.transformAndExecuteQuery(expr).scoredDocuments)
 
 fun main(args: Array<String>) {
+    val argp = Parameters.parseArgs(args)
+    val rerankExperiment = argp.get("rerankExperiment", false)
 
     val operators = Parameters.create()
     operators.set("lib", LeastInformationBinary::class.java.canonicalName)
@@ -107,16 +109,27 @@ fun main(args: Array<String>) {
                 liflibSumExpr.push(GExpr("lif").push(GExpr.Text(it)))
             }
 
-            val tasks = mapOf(Pair("ql", qlExpr),
+
+            val tasks = mapOf(Pair("ql", qlExpr.clone()),
                     Pair("lib", libExpr),
                     Pair("lif", lifExpr), // this one's crap.
                     Pair("libf", libfExpr),
                     Pair("lif+lib", liflibSumExpr))
 
             tasks.forEach { (mName, expr) ->
-                val qres = ret.exec(expr)
+                val gres = ret.transformAndExecuteQuery(expr)
+                val qres = QueryResults(gres.scoredDocuments)
                 if (mName == "libf") {
                     println(qres.take(10).joinToString { String.format("%1.3f", it.score) })
+                } else if (rerankExperiment && mName == "lib") {
+                    val qp = Parameters.create()
+                    qp.set("working", ArrayList(gres.resultSet()))
+                    val ql_lib_res = QueryResults(ret.transformAndExecuteQuery(qlExpr.clone(), qp).scoredDocuments)
+
+                    evals.forEach { eName, eval ->
+                        val score = eval.evaluate(ql_lib_res, truth)
+                        measures.push("lib_ql.$eName", score)
+                    }
                 }
 
                 evals.forEach { eName, eval ->

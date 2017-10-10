@@ -12,7 +12,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <javaVersion>1.8</javaVersion>
         <kotlinVersion>1.1.4</kotlinVersion>
-        <galagoVersion>3.11-SNAPSHOT</galagoVersion>
+        <galagoVersion>3.13-SNAPSHOT</galagoVersion>
         <mainClass>edu.umass.cics.ciir.lim.MainKt</mainClass>
     </properties>
 

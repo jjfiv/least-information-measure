@@ -78,7 +78,11 @@ fun main(args: Array<String>) {
 
         val tqs = DataPaths.getTitleQueries()
         val qrels = DataPaths.getQueryJudgments()
-        val AP = QueryEvaluatorFactory.create("ap", Parameters.create())!!
+
+        val evals = listOf(
+                "ap"
+                //, "ndcg10"
+        ).associate { Pair(it, QueryEvaluatorFactory.create(it, Parameters.create())!!) }
         val measures = NamedMeasures()
 
         tqs.forEach { qid, qtext ->
@@ -100,10 +104,18 @@ fun main(args: Array<String>) {
                 liflibSumExpr.push(GExpr("lif").push(GExpr.Text(it)))
             }
 
-            measures.push("ql-ap", AP.evaluate(ret.exec(qlExpr), truth))
-            measures.push("lib-ap", AP.evaluate(ret.exec(libExpr), truth))
-            measures.push("lif-ap", AP.evaluate(ret.exec(lifExpr), truth))
-            measures.push("lif+lib-ap", AP.evaluate(ret.exec(liflibSumExpr), truth))
+            val tasks = mapOf(Pair("ql", qlExpr),
+                    Pair("lib", libExpr),
+                    Pair("lif", lifExpr),
+                    Pair("lif+lib", liflibSumExpr))
+
+            tasks.forEach { (mName, expr) ->
+                val qres = ret.exec(expr)
+                evals.forEach { eName, eval ->
+                    val score = eval.evaluate(qres, truth)
+                    measures.push("$mName.$eName", score)
+                }
+            }
             println(measures.means())
         }
         println(Parameters.wrap(measures.means()))
